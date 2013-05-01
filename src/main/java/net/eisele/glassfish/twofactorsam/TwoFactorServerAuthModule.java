@@ -10,8 +10,14 @@ import static net.eisele.glassfish.twofactorsam.util.Utils.notNull;
 import static net.eisele.glassfish.twofactorsam.util.Utils.redirect;
 import static net.eisele.glassfish.twofactorsam.util.Utils.sendError;
 
+import java.io.IOException;
+import java.security.Principal;
+
+import javax.security.auth.callback.Callback;
+import javax.security.auth.callback.UnsupportedCallbackException;
 import javax.security.auth.message.AuthException;
 import javax.security.auth.message.AuthStatus;
+import javax.security.auth.message.callback.CallerPrincipalCallback;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -33,6 +39,24 @@ public class TwoFactorServerAuthModule extends HttpServerAuthModule {
     @Override
     public AuthStatus validateHttpRequest(HttpServletRequest request, HttpServletResponse response,
             HttpMsgContext httpMsgContext) throws AuthException {
+        
+        Principal userPrincipal = request.getUserPrincipal();
+        
+        if (userPrincipal != null) {
+            
+            try {
+              
+                httpMsgContext.getHandler().handle(new Callback[] { 
+                    new CallerPrincipalCallback(httpMsgContext.getClientSubject(), userPrincipal) }
+                );
+                
+                return SUCCESS;
+                
+            } catch (IOException | UnsupportedCallbackException e) {
+                // Should not happen
+                throw new IllegalStateException(e);
+            }
+        }
         
         if (isFirstFactorAuthentication(request)) {
             Authenticator authenticator = new MockAuthenticator();
